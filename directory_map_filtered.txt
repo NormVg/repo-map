@@ -1,0 +1,366 @@
+
+Directory: ebc
+----------------------------------------
+  File: app.py
+    Contents:
+from flask import Flask, request, render_template , jsonify
+from manager import *
+
+app = Flask(__name__)
+
+@app.route("/",methods=["GET","POST"])
+def index():
+    table = all_data()
+    date = nowdate()
+
+    if request.method == "POST":
+        mm = int(request.form.get("mm"))
+        motor = int(request.form.get("motor"))
+        slave = int(request.form.get("slave"))
+        bill = int(request.form.get("bill"))
+        print(mm,motor,slave,bill,date)
+        seq, ground ,  first = cal(mm,motor,slave,bill)
+        update_table(seq,date,mm,motor,slave,bill,ground,first)
+        table = all_data()
+        return render_template("index.html",tables=table,date=date,F=first,G=ground)
+    
+    return render_template("index.html",tables=table,date=date)
+
+
+
+
+
+
+
+# 5/6/2024 	19036 	2560 	2192 	4628 	1501 	911
+  File: manager.py
+    Contents:
+from datetime import datetime
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+
+uri = "mongodb+srv://Vishnu:gameisworld4me@thenormvg.c66lnwg.mongodb.net/?retryWrites=true&w=majority&appName=TheNormVg"
+
+# Create a new client and connect to the server
+client = MongoClient(uri, server_api=ServerApi('1'))
+
+dbs = client.list_database_names()
+db = client['electric_bill_calculator']['bill_calculator']
+
+
+def update_table(seq:int,date:str,mm:int,motor:int,slave:int,bill:int,ground:int,first:int):
+    a = {
+        "seq":seq,
+        "date" : date,
+        "main-meter" : mm,
+        "motor" : motor,
+        "slave" : slave,
+        "bill-rs" : bill,
+        "bill-ground" : ground,
+        "bill-first" : first,
+    }
+    
+    db.insert_one(a)
+
+
+def all_data():
+    a =  db.find({})
+    b = []
+    for i in a:
+        b.insert(i['seq'],i)
+        
+    b.reverse()
+    
+    return b
+
+def cal(mm:int,motor:int,slave:int,bill:int):
+    a = all_data()
+    a.reverse()
+    b = len(a)
+    c = a[b-1]
+
+    mm = float(mm) - float(c['main-meter'])
+    motor = float(motor) - float(c['motor'])
+    slave = float(slave) - float(c['slave'])
+
+    each_motor = motor/2
+    
+    one = (mm - slave) - each_motor
+    # two =  slave - each_motor
+    
+    ground = int((one/mm)*bill)
+    first = bill - ground # float((two/mm)*bill)
+    
+    return b,ground,first
+
+def nowdate():
+    d = datetime.now()
+    return f"{d.day}/{d.month}/{d.year}"
+
+
+#cal(18954,2220,4656,4000)
+  File: requirements.txt
+    Contents:
+Flask==3.0.0
+pymongo[srv]
+gunicorn
+
+
+
+Directory: static
+----------------------------------------
+  File: bg.png
+    [Could not read file: 'utf-8' codec can't decode byte 0x89 in position 0: invalid start byte]
+  File: main.css
+    Contents:
+body{
+    background-image: url("/static/bg.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size:cover;
+    background-attachment: fixed;
+    color: whitesmoke;
+    font-family: "JetBrains Mono", monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+#form-box{
+    background-color: #4b4b4b52;
+    border: 1px whitesmoke solid;
+    border-radius: 15px;
+    width: 30vw;
+    padding: 10px;
+    margin-top: 15vh;
+    margin-bottom: 15vh;
+    padding-bottom: 10px;
+}
+#form-box form{
+    display:  flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items:flex-start;
+    gap: 10px;
+
+}
+
+input ,label,h2{
+    margin-left: 10%;
+}
+button{
+    align-self: center;
+    background-color: #6C9DBA;
+    border: 1px black solid;
+    height: 35px;
+    border-radius: 5px;
+    font-size: 20px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+input{
+    background-color: #4b4b4bc7;
+    border: 1px whitesmoke solid;
+    border-radius: 5px;
+    height: 30px;
+    width: 80%;
+    color: whitesmoke;
+}
+
+h2{
+    color: #848484;
+    margin-bottom: 0%;
+}
+
+
+#value{
+    background-color: #6C9DBA;
+    border-radius: 10px;
+    align-self: center;
+    padding-left: 40px;
+    padding-right: 40px;
+    color: black;
+    border: 1px black solid;
+}
+
+
+
+#tables{
+    margin-top: 100px;
+    margin-bottom: 100px;
+    background-color: #4b4b4b52;
+    border: 1px whitesmoke solid;
+    border-radius: 15px;
+    width: 75vw;
+    padding: 10px;
+    
+    height: 60vh;
+    overflow-x: hidden;
+    overflow-y: scroll;
+
+    display: flex;
+    justify-content:center;
+    align-items: flex-start;
+}
+#tables table th{
+    text-align: center;
+    padding-bottom: 15px;
+}
+#tables table td{
+    padding: 5px;
+    text-align: center;
+}
+#tables table{
+    
+    width: 100%;    
+    
+}
+
+.c{
+    color: #88C3EF;
+}
+.ground{
+    color: #E8638B;
+}
+
+.first{
+    color: #91F38F;
+}
+
+
+
+
+
+
+
+
+
+
+
+#tables::-webkit-scrollbar-track {
+    background:transparent;
+    
+  }
+
+::-webkit-scrollbar {
+    width: 10px;
+  }
+  
+  /* Track */
+  ::-webkit-scrollbar-track {
+    background:grey;
+    /* border-radius: 10px; */
+  }
+  
+  /* Handle */
+  ::-webkit-scrollbar-thumb {
+    background: #6C9DBA;
+    border-radius: 10px;
+  }
+
+
+@media only screen and (max-width: 480px){
+    #form-box{
+        
+        width: 90vw;
+    }
+
+    #tables{
+        margin-top: 100px;
+        margin-bottom: 100px;
+        background-color: #00000052;
+        border: 1px whitesmoke solid;
+        border-radius: 15px;
+        width: 90vw;
+        padding: 10px;
+        
+        height: 60vh;
+        overflow-x: scroll;
+        overflow-y: scroll;
+    
+        display: flex;
+        justify-content:center;
+        align-items: flex-start;
+    }
+    #tables table{
+        padding-left: 110px;
+    }
+    #tables table td{
+        padding: 10px;
+     
+    }
+}
+
+
+Directory: templates
+----------------------------------------
+  File: index.html
+    Contents:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bill Calculator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+    </style>
+    <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='main.css') }}">
+</head>
+<body>
+    <div id="form-box">
+        <form method="post">
+            <h2>
+                {{date}}
+            </h2>
+            <label for="mm">Main Meter</label>
+            <input type="number" required name="mm">
+
+            <label for="motor">Motor Meter</label>
+            <input type="number" required name="motor">
+
+            <label for="slave">Slave Meter</label>
+            <input type="number" required name="slave">
+
+            <label for="bill">Bill</label>
+            <input type="number" required name="bill">
+
+            <button type="submit">calculate</button>
+            <div id="value">
+                    <span>Ground Floor {{G}}</span><br>
+                    <span>First Floor {{F}}</span>
+            </div>
+        </form>
+
+    </div>
+    <div id="tables">
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>Main Meter</th>
+                <th>Bill</th>
+                <th>Motor</th>
+                <th>Slave</th>
+                <th>Ground</th>
+                <th>First</th>
+              </tr>
+              
+                {%for i in tables %} 
+                <tr>
+                    <td class="c">{{i['date']}}</td>
+                    <td class="c">{{i['main-meter']}}</td>
+                    <td class="c">{{i['bill-rs']}}</td>
+                    <td class="c">{{i['motor']}}</td>
+                    <td class="c">{{i['slave']}}</td>
+                    <td class="ground">{{i['bill-ground']}}</td>
+                    <td class="first">{{i['bill-first']}}</td>
+                  </tr>
+                    
+                {%endfor%} 
+        </table>
+    </div>
+</body>
+</html>
+
